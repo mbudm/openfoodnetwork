@@ -1,0 +1,53 @@
+---
+openapi: 3.0.1
+info:
+  title: API V1
+  version: v1
+paths:
+  "/api/orders/{id}/capture":
+    parameters:
+    - name: id
+      in: path
+      type: string
+      description: id
+      required: true
+    put:
+      summary: capture order
+      responses:
+        '200':
+          description: successful
+  "/api/orders/{id}/ship":
+    parameters:
+    - name: id
+      in: path
+      type: string
+      description: id
+      required: true
+    put:
+      summary: ship order
+      responses:
+        '200':
+          description: successful
+  "/api/orders":
+    get:
+      summary: list orders
+      responses:
+        '200':
+          description: successful
+  "/api/orders/{id}":
+    parameters:
+    - name: id
+      in: path
+      type: string
+      description: id
+      required: true
+    get:
+      summary: show order
+      responses:
+        '200':
+          description: successful
+servers:
+- url: https://{defaultHost}
+  variables:
+    defaultHost:
+      default: www.example.com
