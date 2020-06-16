@@ -6,6 +6,8 @@ describe 'api/orders', type: :request do
   path '/api/orders' do
     get('list orders') do
       tags 'Orders'
+      # type should be replaced with swagger 3.01 valid schema: {type: string} when rswag #317 is resoved:
+      # https://github.com/rswag/rswag/pull/319
       parameter name: 'X-Spree-Token', in: :header, type: :string
       parameter name: 'q[distributor_id_eq]', in: :query, type: :string, required: false, description: "Query orders for a specific distributor id."
       parameter name: 'q[completed_at_gt]', in: :query, type: :string, required: false, description: "Query orders completed after a date."
@@ -18,7 +20,7 @@ describe 'api/orders', type: :request do
       response(200, 'get orders') do
         # Adds model metadata for Swagger UI. Ideally we'd be able to just add:
         # schema '$ref' => '#/components/schemas/Order_Concise'
-        # Which would also validate the response in the test, however this is an open 
+        # Which would also validate the response in the test, this is an open 
         # issue with rswag: https://github.com/rswag/rswag/issues/268
         metadata[:response][:content] = { "application/json": {
             schema: {'$ref' => '#/components/schemas/Order_Concise'}
@@ -32,16 +34,45 @@ describe 'api/orders', type: :request do
           user.generate_spree_api_key!
           user.spree_api_key
         end
-        let(:'q[distributor_id_eq]') { order_1.distributor.id }
 
-        run_test! do |response|
-          expect(response).to have_http_status(200)
+        context "get all orders" do
+          run_test! do |response|
+            expect(response).to have_http_status(200)
 
-          data = JSON.parse(response.body)
-          orders = data["orders"]
-          expect(orders.size).to eq 1
-          expect(orders.first["id"]).to eq order_1.id
+            data = JSON.parse(response.body)
+            orders = data["orders"]
+            expect(orders.size).to eq 2
+          end
         end
+
+        context "get by distributor id" do
+          let(:'q[distributor_id_eq]') { order_1.distributor.id }
+
+          run_test! do |response|
+            expect(response).to have_http_status(200)
+
+            data = JSON.parse(response.body)
+            orders = data["orders"]
+            expect(orders.size).to eq 1
+            expect(orders.first["id"]).to eq order_1.id
+          end
+        end
+
+        context "get orders within a date range" do  
+          let!(:old_complete_order) { create(:order_with_distributor, state: 'complete', completed_at: Time.zone.today - 7.days) }
+          let(:'q[completed_at_gt]') { Time.zone.today - 7.days - 1.second }
+          let(:'q[completed_at_lt]') { Time.zone.today - 6.days }
+
+          run_test! do |response|
+            expect(response).to have_http_status(200)
+
+            data = JSON.parse(response.body)
+            orders = data["orders"]
+            expect(orders.size).to eq 1
+            expect(orders.first["id"]).to eq old_complete_order.id
+          end
+        end
+        
       end
     end
   end
