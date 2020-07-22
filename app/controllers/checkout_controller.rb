@@ -44,12 +44,17 @@ class CheckoutController < Spree::StoreController
   end
 
   def update
-    params_adapter = Checkout::FormDataAdapter.new(permitted_params, @order, spree_current_user)
-    return update_failed unless @order.update(params_adapter.params[:order])
+    Honeycomb.start_span(name: 'checkout_update') do |span|
+      params_adapter = Checkout::FormDataAdapter.new(permitted_params, @order, spree_current_user)
+      return update_failed unless @order.update(params_adapter.params[:order])
 
-    fire_event('spree.checkout.update')
+      fire_event('spree.checkout.update')
+      
+      span.add_field('order_number', @order.number)
+      span.add_field('shipping_method_id', params_adapter.shipping_method_id)
 
-    checkout_workflow(params_adapter.shipping_method_id)
+      checkout_workflow(params_adapter.shipping_method_id)
+    end
   rescue Spree::Core::GatewayError => e
     rescue_from_spree_gateway_error(e)
   rescue StandardError => e
@@ -166,19 +171,24 @@ class CheckoutController < Spree::StoreController
   end
 
   def checkout_workflow(shipping_method_id)
-    while @order.state != "complete"
-      if @order.state == "payment"
-        return if redirect_to_payment_gateway
+    Honeycomb.start_span(name: 'checkout_workflow') do |span|
+      while @order.state != "complete"
+        if @order.state == "payment"
+          return if redirect_to_payment_gateway
+        end
+
+        @order.select_shipping_method(shipping_method_id) if @order.state == "delivery"
+
+        next if advance_order_state(@order)
+
+        return update_failed
       end
 
-      @order.select_shipping_method(shipping_method_id) if @order.state == "delivery"
+      span.add_field('order_state', @order.state)
+      span.add_field('order_number', @order.number)
 
-      next if advance_order_state(@order)
-
-      return update_failed
+      update_response
     end
-
-    update_response
   end
 
   def redirect_to_payment_gateway

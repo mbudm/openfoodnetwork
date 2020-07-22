@@ -176,4 +176,6 @@ group :development do
   gem 'eventmachine', '>= 1.2.3'
 
   gem 'rack-mini-profiler', '< 3.0.0'
+
+  gem 'honeycomb-beeline'
 end
