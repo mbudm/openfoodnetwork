@@ -95,9 +95,11 @@ module Admin
     end
 
     def for_order_cycle
-      respond_to do |format|
-        format.json do
-          render json: @collection, each_serializer: Api::Admin::ForOrderCycle::EnterpriseSerializer, order_cycle: @order_cycle, spree_current_user: spree_current_user
+      Honeycomb.start_span(name: 'enterprises_controller_for_order_cycle') do |span|
+        respond_to do |format|
+          format.json do
+            render json: @collection, each_serializer: Api::Admin::ForOrderCycle::EnterpriseSerializer, order_cycle: @order_cycle, spree_current_user: spree_current_user
+          end
         end
       end
     end
